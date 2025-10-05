@@ -48,7 +48,7 @@ async def update_bill_category(
         category_id: UUID,
         data: BillCategoryUpdate,
         db: AsyncSession = Depends(get_db),
-        user_id: UUID = None,  # потом заменим на Depends(current_user)
+        user_id: UUID = None,
 ):
     category = await BillCategoryCRUD.update_bill_category(category_id, data, db, user_id)
     if not category:
