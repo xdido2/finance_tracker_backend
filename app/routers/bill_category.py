@@ -61,3 +61,4 @@ async def delete_bill_category(category_id: UUID, db: AsyncSession = Depends(get
     deleted = await BillCategoryCRUD.delete_user(category_id, db)
     if not deleted:
         raise HTTPException(status_code=404, detail="Category not found")
+    return None

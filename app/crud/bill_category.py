@@ -1,9 +1,11 @@
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.bill_category import BillCategory
+from app.models.user import User
 from app.schemas.bill_category import BillCategoryCreate, BillCategoryUpdate
 
 
@@ -12,9 +14,16 @@ class BillCategoryCRUD:
 
     # Create
     @classmethod
-    async def create_bill_category(cls, bill_category: BillCategoryCreate, user_id: UUID,
-                                   db: AsyncSession):
-        db_bill_category = BillCategory(**bill_category.model_dump(), user_id=user_id)
+    async def create_bill_category(cls, bill_category: BillCategoryCreate, user_id: UUID | None, db: AsyncSession):
+        data = bill_category.model_dump()
+        data["user_id"] = user_id or data.get("user_id")
+
+        if data["user_id"]:
+            user_check = await db.execute(select(User).where(User.id == data["user_id"]))
+            if not user_check.scalars().first():
+                raise HTTPException(status_code=404, detail="User not found")
+
+        db_bill_category = BillCategory(**data)
         db.add(db_bill_category)
         await db.commit()
         await db.refresh(db_bill_category)
