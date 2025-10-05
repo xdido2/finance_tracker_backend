@@ -24,6 +24,7 @@ class Bill(SQLModel, table=True):
     user_id: UUID = Field(
         foreign_key="users.id",
         index=True,
+        ondelete="CASCADE",
         nullable=False,
         description="FK → User.id",
     )
@@ -70,3 +71,11 @@ class Bill(SQLModel, table=True):
 @event.listens_for(Bill, "before_update", propagate=True)
 def set_updated_at(mapper, connection, target) -> None:
     target.updated_at = datetime.now()
+
+
+@event.listens_for(Bill, "before_delete")
+async def delete_bill_image(mapper, connection, target):
+    """Delete bill image from S3 after DB delete"""
+    if target.bill_image_url:
+        from app.core.aws_s3 import delete_file_from_s3
+        delete_file_from_s3(target.bill_image_url)

@@ -5,6 +5,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_400_BAD_REQUEST
 
+from app.core.aws_s3 import delete_file_from_s3_async
 from app.models.bill import Bill
 from app.models.bill_category import BillCategory
 from app.models.user import User
@@ -68,5 +69,8 @@ class BillCRUD:
     async def delete_bill(cls, bill_id: UUID, db: AsyncSession):
         db_bill = await cls.get_bill(bill_id, db)
         db_bill.is_deleted = True
+        if db_bill.bill_image_url:
+            await delete_file_from_s3_async(db_bill.bill_image_url)
+        await db.delete(db_bill)
         await db.commit()
         return db_bill

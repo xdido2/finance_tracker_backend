@@ -1,20 +1,21 @@
-import os
-
+import aioboto3
 import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 from fastapi import UploadFile, HTTPException
 
+from app.core.config import settings
+
 load_dotenv()
 
 s3 = boto3.client(
     "s3",
-    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-    region_name=os.getenv("AWS_REGION"),
+    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+    region_name=settings.AWS_REGION,
 
 )
-BUCKET_NAME = os.getenv("AWS_S3_BUCKET")
+BUCKET_NAME = settings.AWS_S3_BUCKET
 
 
 def upload_file_to_s3(file: UploadFile, bill_id: str, folder: str = "bills") -> str:
@@ -44,3 +45,20 @@ def generate_presigned_url(key: str, expires_in: int = 3600) -> str:
         )
     except ClientError as e:
         raise HTTPException(status_code=500, detail=f"S3 presign error: {e}")
+
+
+async def delete_file_from_s3_async(file_url: str):
+    """Delete file from S3 asynchronously"""
+    if not file_url:
+        return
+    bucket = settings.AWS_S3_BUCKET
+    key = file_url.split(f"{bucket}/")[-1]
+
+    session = aioboto3.Session()
+    async with session.client(
+            "s3",
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION,
+    ) as s3:
+        await s3.delete_object(Bucket=bucket, Key=key)

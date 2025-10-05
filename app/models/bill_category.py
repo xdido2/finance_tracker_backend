@@ -36,6 +36,7 @@ class BillCategory(SQLModel, table=True):
     user_id: UUID | None = Field(
         default=None,
         foreign_key="users.id",
+        ondelete="CASCADE",
         index=True,
         description="FK → User.id (if custom user-defined category)",
     )

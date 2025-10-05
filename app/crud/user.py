@@ -1,8 +1,13 @@
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from starlette.status import HTTP_404_NOT_FOUND
 
+from app.core.aws_s3 import delete_file_from_s3_async
+from app.core.security import get_password_hash
+from app.models.bill import Bill
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
 
@@ -13,7 +18,10 @@ class UserCRUD:
     # Create
     @classmethod
     async def create_user(cls, user: UserCreate, db: AsyncSession) -> User:
-        db_user = User(**user.model_dump())
+        user_data = user.model_dump()
+        if "password_hash" in user_data:
+            user_data["password_hash"] = get_password_hash(user_data.pop("password_hash"))
+        db_user = User(**user_data)
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)
@@ -23,7 +31,10 @@ class UserCRUD:
     @classmethod
     async def get_user(cls, user_id: UUID, db: AsyncSession) -> User | None:
         result = await db.execute(select(User).where(User.id == user_id))
-        return result.scalars().first()
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="User not found")
+        return user
 
     # Read many
     @classmethod
@@ -34,22 +45,43 @@ class UserCRUD:
     # Update
     @classmethod
     async def update_user(cls, user_id: UUID, user: UserUpdate, db: AsyncSession):
+        """Update user and re-hash password if provided"""
         db_user = await cls.get_user(user_id=user_id, db=db)
         if not db_user:
             return None
-        for key, value in user.model_dump(exclude_unset=True).items():
+
+        update_data = user.model_dump(exclude_unset=True)
+        if "password_hash" in update_data:
+            update_data["password_hash"] = get_password_hash(update_data.pop("password_hash"))
+
+        for key, value in update_data.items():
             setattr(db_user, key, value)
+
         await db.commit()
         await db.refresh(db_user)
         return db_user
 
-    # Delete (soft delete optional)
+        # Delete (soft delete optional)
+
     @classmethod
     async def delete_user(cls, user_id: UUID, db: AsyncSession) -> bool:
-        result = await cls.get_user(user_id=user_id, db=db)
-        db_user = result.scalars().first()
-        if not db_user:
+        """Delete user and all related S3 files"""
+        user = await cls.get_user(user_id=user_id, db=db)
+        if not user:
             return False
-        await db.delete(db_user)
+
+        result = await db.execute(select(Bill.bill_image_url).where(Bill.user_id == user_id))
+        bill_urls = []
+        for url in result.scalars().all():
+            if url:
+                bill_urls.append(url)
+
+        for url in bill_urls:
+            try:
+                await delete_file_from_s3_async(url)
+            except Exception as e:
+                print(f"⚠️ Error deleting S3 file {url}: {e}")
+
+        await db.delete(user)
         await db.commit()
         return True

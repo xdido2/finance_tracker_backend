@@ -35,7 +35,7 @@ class BillCategoryCRUD:
         result = await db.execute(
             select(BillCategory).where(BillCategory.id == bill_category_id)
         )
-        return result.scalars().first()
+        return result.scalar()
 
     # Read Many
     @classmethod

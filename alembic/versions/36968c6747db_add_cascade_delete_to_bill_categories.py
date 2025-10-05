@@ -1,8 +1,8 @@
-"""Create tables
+"""add cascade delete to bill_categories
 
-Revision ID: f77bf66940e9
+Revision ID: 36968c6747db
 Revises: 
-Create Date: 2025-10-05 15:40:33.438687
+Create Date: 2025-10-05 19:10:48.615108
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'f77bf66940e9'
+revision: str = '36968c6747db'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -41,7 +41,7 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Uuid(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_bill_categories_id'), 'bill_categories', ['id'], unique=True)
@@ -59,7 +59,7 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['category_id'], ['bill_categories.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_bills_category_id'), 'bills', ['category_id'], unique=False)
